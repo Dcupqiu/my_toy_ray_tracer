@@ -1,0 +1,1 @@
+/usr/bin/c++   -fopenmp    -rdynamic CMakeFiles/cos_cubed.dir/src/TheRestOfYourLife/cos_cubed.cc.o  -o cos_cubed 

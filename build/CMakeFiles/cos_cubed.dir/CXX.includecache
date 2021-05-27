@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../src/common/ray.h
+vec3.h
+../src/common/vec3.h
+
+../src/common/rtweekend.h
+cmath
+-
+cstdlib
+-
+limits
+-
+memory
+-
+ray.h
+../src/common/ray.h
+vec3.h
+../src/common/vec3.h
+
+../src/common/vec3.h
+cmath
+-
+iostream
+-
+
+/home/ubuntu/SourceCode/toy_ray_tracer/src/TheRestOfYourLife/cos_cubed.cc
+rtweekend.h
+/home/ubuntu/SourceCode/toy_ray_tracer/src/TheRestOfYourLife/rtweekend.h
+iostream
+-
+iomanip
+-
+math.h
+-
+

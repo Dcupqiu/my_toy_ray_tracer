@@ -1,0 +1,1 @@
+/usr/bin/c++   -fopenmp    -rdynamic CMakeFiles/sphere_plot.dir/src/TheRestOfYourLife/sphere_plot.cc.o  -o sphere_plot 

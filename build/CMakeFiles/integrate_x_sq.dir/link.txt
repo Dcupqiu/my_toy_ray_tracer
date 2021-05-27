@@ -1,0 +1,1 @@
+/usr/bin/c++   -fopenmp    -rdynamic CMakeFiles/integrate_x_sq.dir/src/TheRestOfYourLife/integrate_x_sq.cc.o  -o integrate_x_sq 

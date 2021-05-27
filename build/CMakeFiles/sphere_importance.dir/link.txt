@@ -1,0 +1,1 @@
+/usr/bin/c++   -fopenmp    -rdynamic CMakeFiles/sphere_importance.dir/src/TheRestOfYourLife/sphere_importance.cc.o  -o sphere_importance 

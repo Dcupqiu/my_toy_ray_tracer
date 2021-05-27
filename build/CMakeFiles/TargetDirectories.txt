@@ -1,0 +1,10 @@
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/sphere_plot.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/sphere_importance.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/theRestOfYourLife.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/theNextWeek.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/cos_density.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/cos_cubed.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/integrate_x_sq.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/edit_cache.dir
+/home/ubuntu/SourceCode/toy_ray_tracer/build/CMakeFiles/pi.dir
