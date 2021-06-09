@@ -82,6 +82,24 @@ class noise_texture : public texture {
         double scale;
 };
 
+class perlin_brdf_texture : public texture {
+public:
+    perlin_brdf_texture() {}
+    perlin_brdf_texture(double sc) : scale(sc) {}
+
+    virtual color value(double u, double v, const vec3& p) const override {
+        // return color(1,1,1)*0.5*(1 + noise.turb(scale * p));
+        // return color(1,1,1)*noise.turb(scale * p);
+        return color(1*0.5*(1 + sin(scale * (1+p.z()) + 10*noise.turb(vec3(u, v,0)))),
+                     1*0.5*(1 + sin(scale * (2+p.z()) + 10*noise.turb(vec3(u, v,0)))),
+                     1*0.5*(1 + sin(scale * (3+p.z()) + 10*noise.turb(vec3(u, v,0)))));
+    }
+
+public:
+    perlin noise;
+    double scale;
+};
+
 
 class image_texture : public texture {
     public:

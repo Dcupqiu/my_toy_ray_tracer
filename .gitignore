@@ -1,2 +1,7 @@
-./build
-./git
+./build/*
+./.git/*
+./.gitignore
+./cmake-build-debug
+./cmake-build-debug/*
+./cmake-build-release
+./cmake-build-release/*
