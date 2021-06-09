@@ -110,7 +110,7 @@ hittable_list my_scene1() {
     auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
     objects.add(make_shared<sphere>(vec3(3, 1, 3), 1.0, material));
 
-    objects.add(read_obj_model_triangle("../models/bunny3.obj", make_shared<dielectric>(1.5), vec3(4, -1, 0), vec3(0, 0, 0), vec3(0.4, 0.4, 0.4)));
+    objects.add(read_obj_model_triangle("../models/bunny4.obj", make_shared<dielectric>(1.5), vec3(4, 0, 0), vec3(0, 0, 0), vec3(0.4, 0.4, 0.4)));
     objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<lambertian>(checker)));
     objects.add(read_obj_model_triangle("../models/dragon2.obj", material, vec3(0, 0, -2.7), vec3(0, 60, 0), vec3(0.3, 0.3, 0.3)));
     objects.add(read_obj_model_triangle("../models/spot_triangulated_good.obj", make_shared<lambertian>(spot_texture), vec3(0, 1, 1), vec3(0, 60, 0), vec3(1.5, 1.5, 1.5)));
@@ -314,7 +314,7 @@ int main() {
             background = color(0.70, 0.80, 1.00);
             lookfrom = point3(13,2,3);
             lookat = point3(0,0,0);
-            samples_per_pixel = 4;
+            samples_per_pixel = 64;
             max_depth = 25;
             vfov = 20.0;
             break;
