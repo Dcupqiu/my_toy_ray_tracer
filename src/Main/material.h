@@ -52,6 +52,25 @@ class lambertian : public material {
         shared_ptr<texture> albedo;
 };
 
+class sky : public material {
+public:
+    sky(shared_ptr<texture> a) : emit(a) {}
+    sky(color c) : emit(make_shared<solid_color>(c)) {}
+
+    virtual bool scatter(
+            const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+    ) const override {
+        return false;
+    }
+
+    virtual color emitted(double u, double v, const point3& p) const override {
+        return emit->value(v, u, p);
+    }
+
+public:
+    shared_ptr<texture> emit;
+};
+
 class BRDF : public material {
 public:
     BRDF(shared_ptr<texture> a) : BRDF_texture(a) {}
@@ -59,13 +78,13 @@ public:
     virtual bool scatter(
             const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
             ) const override {
-        auto scatter_direction = rec.normal + random_unit_vector();
-
+//        auto scatter_direction = rec.normal + random_unit_vector();
+        auto scatter_direction = random_in_hemisphere(rec.normal);
         if (scatter_direction.near_zero())
             scatter_direction = rec.normal;
         vec3 half_dir = normalize(r_in.direction() + scatter_direction);
         double u = dot(rec.normal, half_dir) * 0.5 + 0.5;
-        double v = dot(normalize(r_in.direction()), half_dir) * 0.5 + 0.5;
+        double v = dot(normalize(r_in.direction()), half_dir);
         scattered = ray(rec.p, scatter_direction, r_in.time());
         attenuation = BRDF_texture->value(u, v, rec.p);
         return true;

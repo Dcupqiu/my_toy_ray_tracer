@@ -22,20 +22,38 @@
 #include "sphere.h"
 #include "texture.h"
 #include "mesh_triangle.h"
+#include "skybox.h"
 #include <omp.h>
 #include "opencv4/opencv2/opencv.hpp"
+#include <boost/timer.hpp>
 
 #include <iostream>
 
+sky_box make_sky_box(){
+    /***************
+    生成天空盒
+    ***************/
+
+    // 读取天空盒6面
+    auto front = make_shared<sky>(make_shared<image_texture>("../models/skybox/front.png"));
+    auto back = make_shared<sky>(make_shared<image_texture>("../models/skybox/back.png"));
+    auto left = make_shared<sky>(make_shared<image_texture>("../models/skybox/left.png"));
+    auto right = make_shared<sky>(make_shared<image_texture>("../models/skybox/right.png"));
+    auto top = make_shared<sky>(make_shared<image_texture>("../models/skybox/top.png"));
+    auto bottom = make_shared<sky>(make_shared<image_texture>("../models/skybox/bottom.png"));
+
+    // 返回天空盒
+    return sky_box({back, front, top, bottom, right, left});
+}
 
 color ray_color(const ray& r, const color& background, const hittable& world, int depth) {
     hit_record rec;
 
-    // If we've exceeded the ray bounce limit, no more light is gathered.
+    // 如果达到了最大碰撞深度，不再进行碰撞
     if (depth <= 0)
         return color(0,0,0);
 
-    // If the ray hits nothing, return the background color.
+    // 如果光线啥都没碰到，从背景中取颜色
     if (!world.hit(r, 0.001, infinity, rec))
         return background;
 
@@ -43,10 +61,40 @@ color ray_color(const ray& r, const color& background, const hittable& world, in
     color attenuation;
     color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
 
+    // 如果碰撞到的物体不会再进行散射，则直接返回其光照值
     if (!rec.mat_ptr->scatter(r, rec, attenuation, scattered))
         return emitted;
 
+    // 返回照度与后续照度的叠加
     return emitted + attenuation * ray_color(scattered, background, world, depth-1);
+}
+
+color ray_color_sky_box(const ray& r, const hittable& sky_box, const hittable& world, int depth) {
+    hit_record rec;
+
+    // 如果达到了最大碰撞深度，不再进行碰撞
+    if (depth <= 0)
+        return color(0,0,0);
+
+    // 如果光线啥都没碰到，从背景中取颜色
+    if (!world.hit(r, 0.001, infinity, rec)){
+        ray r_t(r);
+        r_t.orig = {0, 0, 0};
+        sky_box.hit(r_t, 0.001, infinity, rec);
+        auto back = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+        return back;
+    }
+
+    ray scattered;
+    color attenuation;
+    color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+
+    // 如果碰撞到的物体不会再进行散射，则直接返回其光照值
+    if (!rec.mat_ptr->scatter(r, rec, attenuation, scattered))
+        return emitted;
+
+    // 返回照度与后续照度的叠加
+    return emitted + attenuation * ray_color_sky_box(scattered, sky_box, world, depth-1);
 }
 
 
@@ -108,13 +156,15 @@ hittable_list my_scene1() {
     auto perlin_texture = make_shared<perlin_brdf_texture>(4);
     auto material = make_shared<BRDF>(perlin_texture);
     auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
-    objects.add(make_shared<sphere>(vec3(3, 1, 3), 1.0, material));
+    objects.add(make_shared<sphere>(vec3(3, 1, 3), 0.8, make_shared<dielectric>(1.5)));
+    objects.add(make_shared<inner_sphere>(vec3(3, 1, 3), 0.6, make_shared<dielectric>(1.5)));
+
 
     objects.add(read_obj_model_triangle("../models/bunny4.obj", make_shared<dielectric>(1.5), vec3(4, 0, 0), vec3(0, 0, 0), vec3(0.4, 0.4, 0.4)));
-    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<lambertian>(checker)));
-    objects.add(read_obj_model_triangle("../models/dragon2.obj", material, vec3(0, 0, -2.7), vec3(0, 60, 0), vec3(0.3, 0.3, 0.3)));
-    objects.add(read_obj_model_triangle("../models/spot_triangulated_good.obj", make_shared<lambertian>(spot_texture), vec3(0, 1, 1), vec3(0, 60, 0), vec3(1.5, 1.5, 1.5)));
-    return objects;
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(read_obj_model_triangle("../models/dragon2.obj", material, vec3(-0.5, 0, -3), vec3(0, 80, 0), vec3(0.5, 0.5, 0.5)));
+    objects.add(read_obj_model_triangle("../models/spot_triangulated_good.obj", make_shared<lambertian>(spot_texture), vec3(0, 1, 5), vec3(0, -60, 0), vec3(1.5, 1.5, 1.5)));
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
 }
 
 
@@ -281,24 +331,22 @@ hittable_list final_scene() {
 
 int main() {
 
-    // Image
-
-    auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 900;
-    int samples_per_pixel = 1;
-    int max_depth = 50;
-//    int max_depth = 25;
+    auto aspect_ratio = 16.0 / 9.0; // 图像比例
+    int image_width = 1280; // 图像宽度
+    int samples_per_pixel = 1; // 每像素采样数
+    int max_depth = 50; // 最大碰撞深度
 
     // World
+    hittable_list world; // 碰撞体的集合——世界
 
-    hittable_list world;
+    point3 lookfrom; // 视点原点
+    point3 lookat; // 视点方向
+    auto vfov = 40.0; // 视角
+    auto aperture = 0.0; // 光圈
+    color background(0,0,0); // 背景颜色
+    auto sky_box = make_sky_box(); // 天空盒实现
 
-    point3 lookfrom;
-    point3 lookat;
-    auto vfov = 40.0;
-    auto aperture = 0.0;
-    color background(0,0,0);
-
+    // 选择对应的场景进行渲染
     switch (2) {
         case 1:
             world = random_scene();
@@ -312,11 +360,13 @@ int main() {
         case 2:
             world = my_scene1();
             background = color(0.70, 0.80, 1.00);
-            lookfrom = point3(13,2,3);
+//            lookfrom = point3(13,3,3);
+//            lookat = point3(0,0,0);
+            lookfrom = point3(7,3,0);
             lookat = point3(0,0,0);
-            samples_per_pixel = 64;
+            samples_per_pixel = 100;
             max_depth = 25;
-            vfov = 20.0;
+            vfov = 75.0;
             break;
 
         case 3:
@@ -348,8 +398,7 @@ int main() {
             world = cornell_box();
             aspect_ratio = 1.0;
             image_width = 600;
-//            samples_per_pixel = 200;
-            samples_per_pixel = 4;
+            samples_per_pixel = 200;
             lookfrom = point3(278, 278, -800);
             lookat = point3(278, 278, 0);
             vfov = 40.0;
@@ -377,19 +426,17 @@ int main() {
             break;
     }
 
-    // Camera
+    // 相机
+    const vec3 vup(0,1,0); // 相机正向
+    const auto dist_to_focus = 10.0; // 焦距
+    const int image_height = static_cast<int>(image_width / aspect_ratio); // 渲染图像高度
 
-    const vec3 vup(0,1,0);
-    const auto dist_to_focus = 10.0;
-    const int image_height = static_cast<int>(image_width / aspect_ratio);
+    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0); // 生成相机对象，以实现光线生成
 
-    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
-
-    // Render
-    std::vector<color> framebuffer(image_width * image_height);
-//    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-//#pragma omp parallel for num_threads(8) collapse(2) schedule(dynamic, 4)
-#pragma omp parallel for collapse(2) schedule(dynamic, 8)
+    // 渲染
+    std::vector<color> framebuffer(image_width * image_height); // 渲染的buffer，以供并行渲染
+    boost::timer t_ogm;
+#pragma omp parallel for collapse(2) schedule(dynamic, 8) num_threads(6)
     for (int j = image_height - 1; j >= 0 ; j--) {
         for (int i = 0; i < image_width; ++i) {
             color pixel_color(0,0,0);
@@ -397,13 +444,17 @@ int main() {
                 auto u = (i + random_double()) / (image_width-1);
                 auto v = (j + random_double()) / (image_height-1);
                 ray r = cam.get_ray(u, v);
-                pixel_color += ray_color(r, background, world, max_depth);
+//                pixel_color += ray_color(r, background, world, max_depth); // Background 渲染
+                pixel_color += ray_color_sky_box(r, sky_box, world, max_depth); // 天空盒渲染
             }
-//            write_color(std::cout, pixel_color, samples_per_pixel);
             framebuffer[(image_height - j - 1) * image_width + i] = pixel_color;
         }
     }
-//    for(color pixel_color:framebuffer)  write_color(std::cout, pixel_color, samples_per_pixel);
+    float time_cost = t_ogm.elapsed();
+    std::cout << "Time_cost: " << time_cost << std::endl;
+    // 渲染结束
+
+    // 从Buffer转为图像显示并保存
     int h = image_height;
     int w = image_width;
     cv::Mat image(h, w,CV_8UC3);
@@ -413,18 +464,15 @@ int main() {
         auto g = framebuffer[i].y();
         auto b = framebuffer[i].z();
 
-        // Replace NaN components with zero. See explanation in Ray Tracing: The Rest of Your Life.
         if (r != r) r = 0.0;
         if (g != g) g = 0.0;
         if (b != b) b = 0.0;
 
-        // Divide the color by the number of samples and gamma-correct for gamma=2.0.
         auto scale = 1.0 / samples_per_pixel;
         r = sqrt(scale * r);
         g = sqrt(scale * g);
         b = sqrt(scale * b);
 
-        // Write the translated [0,255] value of each color component.
 
         static unsigned char color[3];
         color[0] = (unsigned char)(static_cast<int>(256 * clamp(r, 0.0, 0.999)));
@@ -433,11 +481,12 @@ int main() {
         image.at<cv::Vec3b>(i/image_width, i%image_width)[0] = color[2];
         image.at<cv::Vec3b>(i/image_width, i%image_width)[1] = color[1];
         image.at<cv::Vec3b>(i/image_width, i%image_width)[2] = color[0];
-//        std::cerr << "\nDone.\n" << i/image_height << ";" << i % image_height << ";" << i <<"\n";
     }
     cv::imwrite("./scene2.jpg", image);
     cv::imshow("test", image);
     cv::waitKey();
-
-    std::cerr << "\nDone.\n" << image_width << image_height << framebuffer.size() << "?" << framebuffer.size()/image_width;
+    // 结束
+    std::cout << "Image width: " << image_width << std::endl; 
+    std::cout << "Image height: " << image_height << std::endl;
+    std::cout << "Samples per pixel: " << samples_per_pixel << std::endl;
 }
