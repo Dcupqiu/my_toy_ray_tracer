@@ -119,7 +119,7 @@ shared_ptr<hittable> read_obj_model_triangle(const std::string& filename, shared
     std::vector<shared_ptr<hittable>> obj_list;
 
     // above !!;
-    assert(loader.LoadedMeshes.size() == 1);
+    //assert(loader.LoadedMeshes.size() == 1);
     auto mesh = loader.LoadedMeshes[0];
     std::cout << "model size: " << mesh.Vertices.size() / 3 << std::endl;
 
