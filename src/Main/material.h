@@ -18,11 +18,16 @@
 
 
 class material {
+    /******************************
+        材质基类，包括发光和散射方法
+    *******************************/
     public:
+        // 用于光源物体
         virtual color emitted(double u, double v, const point3& p) const {
             return color(0,0,0);
         }
 
+        // 用于对对象的吸收率和光线散射进行定义
         virtual bool scatter(
             const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
         ) const = 0;
@@ -30,6 +35,9 @@ class material {
 
 
 class lambertian : public material {
+    /******************************
+        朗博材质，对于光照的吸收沿法线的cos(theta)衰减
+    ******************************/
     public:
         lambertian(const color& a) : albedo(make_shared<solid_color>(a)) {}
         lambertian(shared_ptr<texture> a) : albedo(a) {}
@@ -53,49 +61,58 @@ class lambertian : public material {
 };
 
 class sky : public material {
-public:
-    sky(shared_ptr<texture> a) : emit(a) {}
-    sky(color c) : emit(make_shared<solid_color>(c)) {}
+    /******************************
+        天空盒材质，
+    ******************************/
+    public:
+        sky(shared_ptr<texture> a) : emit(a) {}
+        sky(color c) : emit(make_shared<solid_color>(c)) {}
 
-    virtual bool scatter(
-            const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
-    ) const override {
-        return false;
-    }
+        virtual bool scatter(
+                const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+        ) const override {
+            return false;
+        }
 
-    virtual color emitted(double u, double v, const point3& p) const override {
-        return emit->value(v, u, p);
-    }
+        virtual color emitted(double u, double v, const point3& p) const override {
+            return emit->value(v, u, p);
+        }
 
-public:
-    shared_ptr<texture> emit;
+    public:
+        shared_ptr<texture> emit;
 };
 
 class BRDF : public material {
-public:
-    BRDF(shared_ptr<texture> a) : BRDF_texture(a) {}
+    /******************************
+        BRDF材质
+    ******************************/
+    public:
+        BRDF(shared_ptr<texture> a) : BRDF_texture(a) {}
 
-    virtual bool scatter(
-            const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
-            ) const override {
-//        auto scatter_direction = rec.normal + random_unit_vector();
-        auto scatter_direction = random_in_hemisphere(rec.normal);
-        if (scatter_direction.near_zero())
-            scatter_direction = rec.normal;
-        vec3 half_dir = normalize(r_in.direction() + scatter_direction);
-        double u = dot(rec.normal, half_dir) * 0.5 + 0.5;
-        double v = dot(normalize(r_in.direction()), half_dir);
-        scattered = ray(rec.p, scatter_direction, r_in.time());
-        attenuation = BRDF_texture->value(u, v, rec.p);
-        return true;
-    }
+        virtual bool scatter(
+                const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+                ) const override {
+    //        auto scatter_direction = rec.normal + random_unit_vector();
+            auto scatter_direction = random_in_hemisphere(rec.normal);
+            if (scatter_direction.near_zero())
+                scatter_direction = rec.normal;
+            vec3 half_dir = normalize(r_in.direction() + scatter_direction);
+            double u = dot(rec.normal, half_dir) * 0.5 + 0.5;
+            double v = dot(normalize(r_in.direction()), half_dir);
+            scattered = ray(rec.p, scatter_direction, r_in.time());
+            attenuation = BRDF_texture->value(u, v, rec.p);
+            return true;
+        }
 
-public:
-    shared_ptr<texture> BRDF_texture;
+    public:
+        shared_ptr<texture> BRDF_texture;
 };
 
 
 class metal : public material {
+    /******************************
+        金属材质
+    ******************************/
     public:
         metal(const color& a, double f) : albedo(a), fuzz(f < 1 ? f : 1) {}
 
@@ -115,6 +132,9 @@ class metal : public material {
 
 
 class dielectric : public material {
+    /******************************
+        电介质材质
+    ******************************/
     public:
         dielectric(double index_of_refraction) : ir(index_of_refraction) {}
 
@@ -154,6 +174,9 @@ class dielectric : public material {
 
 
 class diffuse_light : public material {
+    /******************************
+        光照材质
+    ******************************/
     public:
         diffuse_light(shared_ptr<texture> a) : emit(a) {}
         diffuse_light(color c) : emit(make_shared<solid_color>(c)) {}
@@ -174,6 +197,9 @@ class diffuse_light : public material {
 
 
 class isotropic : public material {
+    /******************************
+        各项同性的
+    ******************************/
     public:
         isotropic(color c) : albedo(make_shared<solid_color>(c)) {}
         isotropic(shared_ptr<texture> a) : albedo(a) {}
@@ -189,6 +215,5 @@ class isotropic : public material {
     public:
         shared_ptr<texture> albedo;
 };
-
 
 #endif
