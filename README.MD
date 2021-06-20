@@ -21,7 +21,7 @@ building steps:
 
 # RUN
 
-    ./toy_ray_tracer -s $SCENE_IND -p $SAMPLES_PER_PIXEL$
+    ./toy_ray_tracer -s $SCENE_IND$ -p $SAMPLES_PER_PIXEL$
     ./toy_ray_tracer -s 1 -p 1
 
 # SCENE INDEX
@@ -42,11 +42,11 @@ building steps:
 
 CPU: i7-9850H
 
-内存: 32G
+Memory: 32G
 
-显卡: T2000
+Graphic Card: T2000
 
-系统：Ubuntu18.04LTS
+System：Ubuntu18.04LTS
 
 # TEST RESULTS
 
