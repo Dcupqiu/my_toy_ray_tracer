@@ -28,6 +28,7 @@
 #include <boost/timer.hpp>
 
 #include <iostream>
+#include <unistd.h>
 
 sky_box make_sky_box() {
     /***************
@@ -76,7 +77,7 @@ color ray_color_sky_box(const ray &r, const hittable &sky_box, const hittable &w
     if (depth <= 0)
         return color(0, 0, 0);
 
-    // 如果光线啥都没碰到，从背景中取颜色
+    // 如果光线啥都没碰到，从天空盒中取颜色
     if (!world.hit(r, 0.001, infinity, rec)) {
         ray r_t(r);
         r_t.orig = {0, 0, 0};
@@ -98,57 +99,255 @@ color ray_color_sky_box(const ray &r, const hittable &sky_box, const hittable &w
 }
 
 
-hittable_list random_scene() {
-    hittable_list world;
+hittable_list my_scene1() {
+    hittable_list objects;
 
+    // 创建贴图材质
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+    auto material = make_shared<BRDF>(perlin_texture);
+    auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
 
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(checker)));
+    // 创建双层玻璃球
+    objects.add(make_shared<sphere>(vec3(3, 1, 3), 0.8, make_shared<dielectric>(1.5)));
+    objects.add(make_shared<inner_sphere>(vec3(3, 1, 3), 0.6, make_shared<dielectric>(1.5)));
 
-    for (int a = -11; a < 11; a++) {
-        for (int b = -11; b < 11; b++) {
-            auto choose_mat = random_double();
-            point3 center(a + 0.9 * random_double(), 0.2, b + 0.9 * random_double());
 
-            if ((center - vec3(4, 0.2, 0)).length() > 0.9) {
-                shared_ptr<material> sphere_material;
+    // 创建透明兔子
+    objects.add(
+            read_obj_model_triangle("../models/bunny4.obj", make_shared<dielectric>(1.5), vec3(4, 0, 0), vec3(0, 0, 0),
+                                    vec3(0.4, 0.4, 0.4)));
+    // 创建地板
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
 
-                if (choose_mat < 0.8) {
-                    // diffuse
-                    auto albedo = color::random() * color::random();
-                    sphere_material = make_shared<lambertian>(albedo);
-                    auto center2 = center + vec3(0, random_double(0, .5), 0);
-                    world.add(make_shared<moving_sphere>(
-                            center, center2, 0.0, 1.0, 0.2, sphere_material));
-                } else if (choose_mat < 0.95) {
-                    // metal
-                    auto albedo = color::random(0.5, 1);
-                    auto fuzz = random_double(0, 0.5);
-                    sphere_material = make_shared<metal>(albedo, fuzz);
-                    world.add(make_shared<sphere>(center, 0.2, sphere_material));
-                } else {
-                    // glass
-                    sphere_material = make_shared<dielectric>(1.5);
-                    world.add(make_shared<sphere>(center, 0.2, sphere_material));
-                }
-            }
-        }
-    }
+    // 创建龙
+    objects.add(read_obj_model_triangle("../models/dragon2.obj", material, vec3(-0.5, 0, -3), vec3(0, 80, 0),
+                                        vec3(0.5, 0.5, 0.5)));
 
-    auto material1 = make_shared<dielectric>(1.5);
-    world.add(make_shared<sphere>(point3(0, 1, 0), 1.0, material1));
-
-    auto material2 = make_shared<lambertian>(color(0.4, 0.2, 0.1));
-    world.add(make_shared<sphere>(point3(-4, 1, 0), 1.0, material2));
-
-    auto material3 = make_shared<metal>(color(0.7, 0.6, 0.5), 0.0);
-    world.add(make_shared<sphere>(point3(4, 1, 0), 1.0, material3));
-
-    return hittable_list(make_shared<bvh_node>(world, 0.0, 1.0));
+    // 创建牛
+    objects.add(read_obj_model_triangle("../models/spot_triangulated_good.obj", make_shared<lambertian>(spot_texture),
+                                        vec3(0, 1, 5), vec3(0, -60, 0), vec3(1.5, 1.5, 1.5)));
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
 }
 
+hittable_list my_scene2() {
+    hittable_list objects;
 
-hittable_list my_scene1() {
+    auto checker_tex = make_shared<checker_texture>(
+            color(0.75, 0.1, 0.3),
+            color(0.9, 0.9, 0.9));
+
+    auto metal_tex = make_shared<metal>(color(0.8, 0.8, 0.9), 0.0);
+    auto perlin_mat = make_shared<perlin_brdf_texture>(4);
+    auto perlin_tex = make_shared<BRDF>(perlin_mat);
+    auto colorspot_tex = make_shared<image_texture>("../models/spot_texture.png");
+    auto die_tex = make_shared<dielectric>(1.5);
+
+    //floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<lambertian>(checker_tex)));
+    //objects
+    objects.add(read_obj_model_triangle(
+            "../models/Rabbit.obj",
+            metal_tex,
+            vec3(1.5, 0, 2.5),
+            vec3(0, 120, 0),
+            vec3(1, 1, 1)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/Dog2.obj",
+            perlin_tex,
+            vec3(1, 0, 0.5),
+            vec3(0, 60, 0),
+            vec3(0.2, 0.2, 0.2)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/spot_triangulated_good.obj",
+            make_shared<lambertian>(colorspot_tex),
+            vec3(2, 1, -2.5),
+            vec3(0, -120, 0),
+            vec3(1.2, 1.2, 1.2)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/SeaUrchin2.obj",
+            die_tex,
+            vec3(5, 0, 0),
+            vec3(0, 30, 0),
+            vec3(0.08, 0.08, 0.08)));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list my_scene3() {
+    hittable_list objects;
+
+    auto checker_tex = make_shared<checker_texture>(
+            color(0.75, 0.1, 0.3),
+            color(0.9, 0.9, 0.9));
+    auto noise_tex = make_shared<noise_texture>(2);
+
+    auto metal_tex = make_shared<metal>(color(0.8, 0.8, 0.9), 0.0);
+    auto perlin_mat = make_shared<perlin_brdf_texture>(4);
+    auto perlin_tex = make_shared<BRDF>(perlin_mat);
+    auto colorspot_tex = make_shared<image_texture>("../models/spot_texture.png");
+    auto die_tex = make_shared<dielectric>(1.5);
+
+    //floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<lambertian>(noise_tex)));
+    //objects
+    objects.add(read_obj_model_triangle(
+            "../models/Rabbit.obj",
+            metal_tex,
+            vec3(1.5, 0, 2.5),
+            vec3(0, 120, 0),
+            vec3(1, 1, 1)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/Dog2.obj",
+            perlin_tex,
+            vec3(1, 0, 0.5),
+            vec3(0, 60, 0),
+            vec3(0.2, 0.2, 0.2)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/spot_triangulated_good.obj",
+            make_shared<lambertian>(colorspot_tex),
+            vec3(2, 1, -2.5),
+            vec3(0, -120, 0),
+            vec3(1.2, 1.2, 1.2)));
+
+    objects.add(read_obj_model_triangle(
+            "../models/SeaUrchin2.obj",
+            die_tex,
+            vec3(5, 0, 0),
+            vec3(0, 30, 0),
+            vec3(0.08, 0.08, 0.08)));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list cornell_box2() {
+    hittable_list objects;
+
+    auto purple = make_shared<lambertian>(color(0.54, 0.25, 0.46));
+    auto yellow = make_shared<lambertian>(color(0.98, 0.65, 0.20));
+    auto white = make_shared<lambertian>(color(0.73, 0.73, 0.73));
+    auto blue = make_shared<lambertian>(color(0.09, 0.38, 0.67));
+    auto gray = make_shared<lambertian>(color(0.57, 0.50, 0.45));
+    auto light = make_shared<diffuse_light>(color(7, 7, 7));
+    auto red = color(0.67, 0.22, 0.18);
+    auto green = color(0.14, 0.50, 0.40);
+
+    auto metal_tex = make_shared<metal>(red, 1.0);
+    auto metal_tex2 = make_shared<metal>(green, 0.2);
+    auto perlin_mat = make_shared<perlin_brdf_texture>(4);
+    auto perlin_tex = make_shared<BRDF>(perlin_mat);
+    auto colorspot_tex = make_shared<image_texture>("../models/spot_texture.png");
+    auto die_tex = make_shared<dielectric>(1.5);
+
+    //make a room
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, purple));
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, yellow));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, blue));
+    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+    objects.add(make_shared<xz_rect>(100, 456, 114, 446, 554, light));
+
+    //objects
+
+    objects.add(make_shared<sphere>(vec3(180, 300, 300), 90, make_shared<dielectric>(1.5)));
+    objects.add(make_shared<inner_sphere>(vec3(180, 300, 300), 80, make_shared<dielectric>(1.5)));
+
+    //box
+    shared_ptr<hittable> box_trian = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), gray);
+    box_trian = make_shared<rotate_y>(box_trian, 20);
+    box_trian = make_shared<translate>(box_trian, vec3(265, 0, 295));
+    objects.add(box_trian);
+
+    shared_ptr<hittable> box_square = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
+    box_square = make_shared<rotate_y>(box_square, -75);
+    box_square = make_shared<translate>(box_square, vec3(130, 0, 65));
+    objects.add(box_square);
+    //others
+    objects.add(read_obj_model_triangle(
+            "../models/SeaUrchin2.obj",
+            metal_tex2,
+            vec3(380, 330, 340),
+            vec3(0, 0, 0),
+            vec3(7, 7, 7)));
+    objects.add(read_obj_model_triangle(
+            "../models/Rabbit.obj",
+            metal_tex,
+            vec3(30, 170, 210),
+            vec3(0, 120, 0),
+            vec3(30, 30, 30)));
+    objects.add(read_obj_model_triangle(
+            "../models/Dog2.obj",
+            perlin_tex,
+            vec3(320, 0, 210),
+            vec3(0, -150, 0),
+            vec3(15, 15, 15)));
+    objects.add(read_obj_model_triangle(
+            "../models/spot_triangulated_good.obj",
+            make_shared<lambertian>(colorspot_tex),
+            vec3(335, 50, 300),
+            vec3(0, -120, 0),
+            vec3(90, 90, 90)));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list lambertian_scene() {
+    hittable_list objects;
+
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto lambertian_tex = make_shared<lambertian>(spot_texture);
+    auto red = make_shared<lambertian>(color(.65, .05, .05));
+    auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto green = make_shared<lambertian>(color(.12, .45, .15));
+    auto noise_tex = make_shared<noise_texture>(4);
+    auto noise = make_shared<lambertian>(noise_tex);
+//    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+//    auto material = make_shared<BRDF>(perlin_texture);
+//    auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
+    // Floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 6), 1, lambertian_tex));
+    objects.add(make_shared<sphere>(vec3(0, 1, 3), 1, red));
+    objects.add(make_shared<sphere>(vec3(0, 1, 0), 1, white));
+    objects.add(make_shared<sphere>(vec3(0, 1, -3), 1, green));
+    objects.add(make_shared<sphere>(vec3(0, 1, -6), 1, noise));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list perlin_scene() {
+    hittable_list objects;
+
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto lambertian_tex = make_shared<lambertian>(spot_texture);
+    auto red = make_shared<lambertian>(color(.65, .05, .05));
+    auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto green = make_shared<lambertian>(color(.12, .45, .15));
+    auto noise_tex = make_shared<noise_texture>(4);
+    auto noise = make_shared<lambertian>(noise_tex);
+//    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+//    auto material = make_shared<BRDF>(perlin_texture);
+//    auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
+    // Floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 6), 1, make_shared<lambertian>(make_shared<noise_texture>(1))));
+    objects.add(make_shared<sphere>(vec3(0, 1, 3), 1, make_shared<lambertian>(make_shared<noise_texture>(2))));
+    objects.add(make_shared<sphere>(vec3(0, 1, 0), 1, make_shared<lambertian>(make_shared<noise_texture>(4))));
+    objects.add(make_shared<sphere>(vec3(0, 1, -3), 1, make_shared<lambertian>(make_shared<noise_texture>(6))));
+    objects.add(make_shared<sphere>(vec3(0, 1, -6), 1, make_shared<lambertian>(make_shared<noise_texture>(8))));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list dielectric_scene() {
     hittable_list objects;
 
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
@@ -156,195 +355,131 @@ hittable_list my_scene1() {
     auto perlin_texture = make_shared<perlin_brdf_texture>(4);
     auto material = make_shared<BRDF>(perlin_texture);
     auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
-    objects.add(make_shared<sphere>(vec3(3, 1, 3), 0.8, make_shared<dielectric>(1.5)));
-    objects.add(make_shared<inner_sphere>(vec3(3, 1, 3), 0.6, make_shared<dielectric>(1.5)));
-
-
-    objects.add(
-            read_obj_model_triangle("../models/bunny4.obj", make_shared<dielectric>(1.5), vec3(4, 0, 0), vec3(0, 0, 0),
-                                    vec3(0.4, 0.4, 0.4)));
+    // Floor
     objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 6), 1, make_shared<dielectric>(1.8)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 3), 1, make_shared<dielectric>(1.6)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 0), 1, make_shared<dielectric>(1.4)));
+    objects.add(make_shared<sphere>(vec3(0, 1, -3), 1, make_shared<dielectric>(1.2)));
+    objects.add(make_shared<sphere>(vec3(0, 1, -6), 1, make_shared<dielectric>(1.5)));
+    objects.add(make_shared<inner_sphere>(vec3(0, 1, -6), 0.7, make_shared<dielectric>(1.5)));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list metal_scene() {
+    hittable_list objects;
+
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto lambertian_tex = make_shared<lambertian>(spot_texture);
+    auto noise_tex = make_shared<noise_texture>(4);
+//    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+//    auto material = make_shared<BRDF>(perlin_texture);
+    auto metal1 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.);
+    auto metal2 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.1);
+    auto metal3 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
+    auto metal4 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.4);
+    auto metal5 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.8);
+    // Floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 6), 1, metal1));
+    objects.add(make_shared<sphere>(vec3(0, 1, 3), 1, metal2));
+    objects.add(make_shared<sphere>(vec3(0, 1, 0), 1, metal3));
+    objects.add(make_shared<sphere>(vec3(0, 1, -3), 1, metal4));
+    objects.add(make_shared<sphere>(vec3(0, 1, -6), 1, metal5));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list BRDF_scene() {
+    hittable_list objects;
+
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto lambertian_tex = make_shared<lambertian>(spot_texture);
+    auto noise_tex = make_shared<noise_texture>(4);
+//    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+    auto material1 = make_shared<BRDF>(make_shared<perlin_brdf_texture>(1));
+    auto material2 = make_shared<BRDF>(make_shared<perlin_brdf_texture>(2));
+    auto material3 = make_shared<BRDF>(make_shared<perlin_brdf_texture>(4));
+    auto material4 = make_shared<BRDF>(make_shared<perlin_brdf_texture>(6));
+    auto material5 = make_shared<BRDF>(make_shared<perlin_brdf_texture>(8));
+//    auto metal1 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.);
+//    auto metal2 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.1);
+//    auto metal3 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
+//    auto metal4 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.4);
+//    auto metal5 = make_shared<metal>(color(0.8, 0.8, 0.9), 0.8);
+    // Floor
+    objects.add(make_shared<xz_rect>(-30, 30, -30, 30, 0, make_shared<metal>(color(0.6, 0.6, 0.6), 0.)));
+    objects.add(make_shared<sphere>(vec3(0, 1, 6), 1, material1));
+    objects.add(make_shared<sphere>(vec3(0, 1, 3), 1, material2));
+    objects.add(make_shared<sphere>(vec3(0, 1, 0), 1, material3));
+    objects.add(make_shared<sphere>(vec3(0, 1, -3), 1, material4));
+    objects.add(make_shared<sphere>(vec3(0, 1, -6), 1, material5));
+
+    return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
+}
+
+hittable_list bvh_test() {
+    hittable_list objects;
+
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+    auto material = make_shared<BRDF>(perlin_texture);
+    auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
+
     objects.add(read_obj_model_triangle("../models/dragon2.obj", material, vec3(-0.5, 0, -3), vec3(0, 80, 0),
                                         vec3(0.5, 0.5, 0.5)));
-    objects.add(read_obj_model_triangle("../models/spot_triangulated_good.obj", make_shared<lambertian>(spot_texture),
-                                        vec3(0, 1, 5), vec3(0, -60, 0), vec3(1.5, 1.5, 1.5)));
     return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
 }
 
-
-hittable_list two_perlin_spheres() {
+hittable_list no_bvh_test() {
     hittable_list objects;
 
-    auto pertext = make_shared<noise_texture>(4);
-    objects.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
-    objects.add(make_shared<sphere>(point3(0, 2, 0), 2, make_shared<lambertian>(pertext)));
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto spot_texture = make_shared<image_texture>("../models/spot_texture.png");
+    auto perlin_texture = make_shared<perlin_brdf_texture>(4);
+    auto material = make_shared<BRDF>(perlin_texture);
+    auto metal_m = make_shared<metal>(color(0.8, 0.8, 0.9), 0.2);
 
-    return objects;
-}
-
-
-hittable_list earth() {
-    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
-    auto earth_surface = make_shared<lambertian>(earth_texture);
-    auto globe = make_shared<sphere>(point3(0, 0, 0), 2, earth_surface);
-
-    return hittable_list(globe);
-}
-
-
-hittable_list simple_light() {
-    hittable_list objects;
-
-    auto pertext = make_shared<noise_texture>(4);
-    objects.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
-    objects.add(make_shared<sphere>(point3(0, 2, 0), 2, make_shared<lambertian>(pertext)));
-
-    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
-    objects.add(make_shared<sphere>(point3(0, 7, 0), 2, difflight));
-    objects.add(make_shared<xy_rect>(3, 5, 1, 3, -2, difflight));
-
-    return objects;
-}
-
-
-hittable_list cornell_box() {
-    hittable_list objects;
-
-    auto red = make_shared<lambertian>(color(.65, .05, .05));
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(15, 15, 15));
-
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
-
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-    objects.add(box1);
-
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-    objects.add(box2);
-
-    objects.add(read_obj_model_triangle("../models/bunny2.obj", make_shared<metal>(color(0.8, 0.8, 0.9), 1.0),
-                                        vec3(380, 300, 340), vec3(0, 0, 0), vec3(20, 20, 20)));
-
+    objects.add(read_obj_model_triangle_no_bvh("../models/dragon2.obj", material, vec3(-0.5, 0, -3), vec3(0, 80, 0),
+                                        vec3(0.5, 0.5, 0.5)));
     return hittable_list(make_shared<bvh_node>(objects, 0.0, 1.0));
 }
 
-
-hittable_list cornell_smoke() {
-    hittable_list objects;
-
-    auto red = make_shared<lambertian>(color(.65, .05, .05));
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(7, 7, 7));
-
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(113, 443, 127, 432, 554, light));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
-
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-
-    objects.add(make_shared<constant_medium>(box1, 0.01, color(0, 0, 0)));
-    objects.add(make_shared<constant_medium>(box2, 0.01, color(1, 1, 1)));
-
-    return objects;
-}
-
-
-hittable_list final_scene() {
-    hittable_list boxes1;
-    auto ground = make_shared<lambertian>(color(0.48, 0.83, 0.53));
-
-    const int boxes_per_side = 20;
-    for (int i = 0; i < boxes_per_side; i++) {
-        for (int j = 0; j < boxes_per_side; j++) {
-            auto w = 100.0;
-            auto x0 = -1000.0 + i * w;
-            auto z0 = -1000.0 + j * w;
-            auto y0 = 0.0;
-            auto x1 = x0 + w;
-            auto y1 = random_double(1, 101);
-            auto z1 = z0 + w;
-
-            boxes1.add(make_shared<box>(point3(x0, y0, z0), point3(x1, y1, z1), ground));
+void parse_arg(int argc, char *argv[], int &spp, int &scene) {
+    int opt;
+    while ((opt = getopt(argc, argv, "hs:p:")) != -1) {
+        switch (opt) {
+            case 'h':
+                printf("Usage: %s [-s scene] [-p spp]\n", argv[0]);
+                exit(0);
+                break;
+            case 's':
+                scene = atoi(optarg);
+                break;
+            case 'p':
+                spp = atoi(optarg);
+                break;
+            default:
+                break;
         }
     }
-
-    hittable_list objects;
-
-    objects.add(make_shared<bvh_node>(boxes1, 0, 1));
-
-    auto light = make_shared<diffuse_light>(color(7, 7, 7));
-    objects.add(make_shared<xz_rect>(123, 423, 147, 412, 554, light));
-
-    auto center1 = point3(400, 400, 200);
-    auto center2 = center1 + vec3(30, 0, 0);
-    auto moving_sphere_material = make_shared<lambertian>(color(0.7, 0.3, 0.1));
-    objects.add(make_shared<moving_sphere>(center1, center2, 0, 1, 50, moving_sphere_material));
-
-    objects.add(make_shared<sphere>(point3(260, 150, 45), 50, make_shared<dielectric>(1.5)));
-    objects.add(make_shared<sphere>(
-            point3(0, 150, 145), 50, make_shared<metal>(color(0.8, 0.8, 0.9), 1.0)
-    ));
-
-    auto boundary = make_shared<sphere>(point3(360, 150, 145), 70, make_shared<dielectric>(1.5));
-    objects.add(boundary);
-    objects.add(make_shared<constant_medium>(boundary, 0.2, color(0.2, 0.4, 0.9)));
-    boundary = make_shared<sphere>(point3(0, 0, 0), 5000, make_shared<dielectric>(1.5));
-    objects.add(make_shared<constant_medium>(boundary, .0001, color(1, 1, 1)));
-
-    auto emat = make_shared<lambertian>(make_shared<image_texture>("earthmap.jpg"));
-    objects.add(make_shared<sphere>(point3(400, 200, 400), 100, emat));
-    auto pertext = make_shared<noise_texture>(0.1);
-    objects.add(make_shared<sphere>(point3(220, 280, 300), 80, make_shared<lambertian>(pertext)));
-
-    hittable_list boxes2;
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    int ns = 1000;
-    for (int j = 0; j < ns; j++) {
-        boxes2.add(make_shared<sphere>(point3::random(0, 165), 10, white));
-    }
-
-    objects.add(make_shared<translate>(
-            make_shared<rotate_y>(
-                    make_shared<bvh_node>(boxes2, 0.0, 1.0), 15),
-            vec3(-100, 270, 395)
-                )
-    );
-
-    return objects;
 }
 
-
-int main() {
+int main(int argc, char *argv[]) {
 
     auto aspect_ratio = 16.0 / 9.0; // 图像比例
-    int image_width = 1280; // 图像宽度
-    int samples_per_pixel = 600; // 每像素采样数
+    int image_width = 960; // 图像宽度
+    int samples_per_pixel = 1; // 每像素采样数
     int max_depth = 50; // 最大碰撞深度
 
     // World
     hittable_list world; // 碰撞体的集合——世界
 
-    int scene = 3; // Scene_id
+    int scene = 10; // Scene_id
 
     point3 lookfrom; // 视点原点
     point3 lookat; // 视点方向
@@ -356,26 +491,24 @@ int main() {
 
 
     // 选择对应的场景进行渲染
-    switch (2) {
+    parse_arg(argc, argv, samples_per_pixel, scene);
+    printf("Samples Per Pixel : %d\nScene : %d\n", samples_per_pixel, scene);
+    switch (scene) {
         case 1:
             world = my_scene1();
             using_sky_box = true;
             lookfrom = point3(7, 3, 0);
             lookat = point3(0, 0, 0);
-            //samples_per_pixel = 100;
             vfov = 75.0;
             max_depth = 25;
-            aperture = 0.1;
             break;
 
         case 2:
-            world = my_scene1();
+            world = my_scene2();
+            using_sky_box = true;
             background = color(0.70, 0.80, 1.00);
-//            lookfrom = point3(13,3,3);
-//            lookat = point3(0,0,0);
             lookfrom = point3(7, 3, 0);
             lookat = point3(0, 0, 0);
-            //samples_per_pixel = 100;
             max_depth = 25;
             vfov = 75.0;
             break;
@@ -384,7 +517,6 @@ int main() {
             world = cornell_box2();
             aspect_ratio = 1.0;
             image_width = 600;
-//            samples_per_pixel = 200;
             lookfrom = point3(278, 278, -800);
             lookat = point3(278, 278, 0);
             max_depth = 25;
@@ -392,51 +524,77 @@ int main() {
             break;
 
         case 4:
-            world = earth();
+            world = my_scene3();
+            using_sky_box = true;
             background = color(0.70, 0.80, 1.00);
-            lookfrom = point3(0, 0, 12);
+            lookfrom = point3(7, 3, 0);
             lookat = point3(0, 0, 0);
-            vfov = 20.0;
+            max_depth = 25;
+            vfov = 75.0;
             break;
 
         case 5:
-            world = simple_light();
-            samples_per_pixel = 400;
-            lookfrom = point3(26, 3, 6);
-            lookat = point3(0, 2, 0);
-            vfov = 20.0;
+            world = lambertian_scene();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
             break;
 
         default:
         case 6:
-            world = cornell_box();
-            aspect_ratio = 1.0;
-            image_width = 600;
-            samples_per_pixel = 200;
-            lookfrom = point3(278, 278, -800);
-            lookat = point3(278, 278, 0);
-            vfov = 40.0;
+            world = dielectric_scene();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
             break;
 
         case 7:
-            world = cornell_smoke();
-            aspect_ratio = 1.0;
-            image_width = 600;
-            samples_per_pixel = 200;
-            lookfrom = point3(278, 278, -800);
-            lookat = point3(278, 278, 0);
-            vfov = 40.0;
+            world = metal_scene();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
             break;
 
         case 8:
-            world = final_scene();
-            aspect_ratio = 1.0;
-            image_width = 800;
-//            samples_per_pixel = 10000;
-            samples_per_pixel = 100;
-            lookfrom = point3(478, 278, -600);
-            lookat = point3(278, 278, 0);
-            vfov = 40.0;
+            world = BRDF_scene();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
+            break;
+
+        case 9:
+            world = perlin_scene();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
+            break;
+
+        case 10:
+            world = bvh_test();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
+            break;
+
+        case 11:
+            world = no_bvh_test();
+            using_sky_box = true;
+            lookfrom = point3(7, 3, 0);
+            lookat = point3(0, 0, 0);
+            vfov = 60.0;
+            max_depth = 25;
             break;
     }
 
@@ -513,7 +671,7 @@ int main() {
         image.at<cv::Vec3b>(i / image_width, i % image_width)[1] = color[1];
         image.at<cv::Vec3b>(i / image_width, i % image_width)[2] = color[0];
     }
-    cv::imwrite("./scene2.jpg", image);
+    cv::imwrite("./scene.jpg", image);
     cv::imshow("test", image);
     cv::waitKey();
     // 结束

@@ -53,8 +53,9 @@ class checker_texture : public texture {
             : even(make_shared<solid_color>(c1)) , odd(make_shared<solid_color>(c2)) {}
 
         virtual color value(double u, double v, const vec3& p) const override {
-            auto sines = sin(10*p.x())*sin(10*p.y())*sin(10*p.z());
-            if (sines < 0)
+//            auto sines = sin(10*p.x())*sin(10*p.y())*sin(10*p.z());
+            int total = std::floor(p.x()/4) + std::floor(p.y()/4) + std::floor(p.z()/4);
+            if (total % 2 == 0)
                 return odd->value(u, v, p);
             else
                 return even->value(u, v, p);
@@ -72,9 +73,10 @@ class noise_texture : public texture {
         noise_texture(double sc) : scale(sc) {}
 
         virtual color value(double u, double v, const vec3& p) const override {
-            // return color(1,1,1)*0.5*(1 + noise.turb(scale * p));
-            // return color(1,1,1)*noise.turb(scale * p);
-            return color(1,1,1)*0.5*(1 + sin(scale*p.z() + 10*noise.turb(p)));
+//             return color(1,1,1)*0.5*(1 + noise.turb(scale * p));
+            return color(1,1,1)*0.5*(1 + noise.noise(scale * p));
+//             return color(1,1,1)*noise.turb(scale * p);
+//            return color(1,1,1)*0.5*(1 + sin(scale*p.z() + 10*noise.turb(p)));
         }
 
     public:
@@ -90,9 +92,15 @@ public:
     virtual color value(double u, double v, const vec3& p) const override {
         // return color(1,1,1)*0.5*(1 + noise.turb(scale * p));
         // return color(1,1,1)*noise.turb(scale * p);
-        return color(1*0.5*(1 + sin(scale * (1.2) + 10*noise.turb(vec3(2 * u, 2 * v,0)))),
-                     1*0.5*(1 + sin(scale * (1.5) + 10*noise.turb(vec3(2 * u, 2 * v,0)))),
-                     1*0.5*(1 + sin(scale * (2.0) + 10*noise.turb(vec3(2 * u, 2 * v,0)))));
+//        return color((scale *noise.turb(vec3(2 * u, 2 * v,2))),
+//                     (scale *noise.turb(vec3(2 * u, 2 * v,1))),
+//                     (scale *noise.turb(vec3(2 * u, 2 * v,0))));
+        return color(1*0.5*(1 + scale *noise.turb(vec3(2 * u, 2 * v,2))),
+                     1*0.5*(1 + scale *noise.turb(vec3(2 * u, 2 * v,1))),
+                     1*0.5*(1 + scale *noise.turb(vec3(2 * u, 2 * v,0))));
+//        return color(1*0.5*(1 + sin(scale * (1.2) + 10*noise.turb(vec3(2 * u, 2 * v,0)))),
+//                     1*0.5*(1 + sin(scale * (1.5) + 10*noise.turb(vec3(2 * u, 2 * v,0)))),
+//                     1*0.5*(1 + sin(scale * (2.0) + 10*noise.turb(vec3(2 * u, 2 * v,0)))));
     }
 
 public:

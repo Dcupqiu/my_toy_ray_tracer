@@ -1,1 +1,0 @@
-/usr/bin/c++   -fopenmp    -rdynamic CMakeFiles/theRestOfYourLife.dir/src/TheRestOfYourLife/main.cc.o  -o theRestOfYourLife 

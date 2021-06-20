@@ -7,6 +7,8 @@ project ( RTWeekend
 
 # Set to c++11
 set ( CMAKE_CXX_STANDARD 17 )
+set(CMAKE_CXX_FLAGS_RELEASE_INIT "-O4 -Wall")
+set(CMAKE_BUILD_TYPE Release)
 
 # Source
 set ( COMMON_ALL

@@ -45,9 +45,10 @@ class lambertian : public material {
         virtual bool scatter(
             const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
         ) const override {
+            // 光线散射方向为法线向量加一个球形的采样，模拟cos(theta)分布
             auto scatter_direction = rec.normal + random_unit_vector();
 
-            // Catch degenerate scatter direction
+            // 处理采样到原点的点
             if (scatter_direction.near_zero())
                 scatter_direction = rec.normal;
 
@@ -92,13 +93,20 @@ class BRDF : public material {
         virtual bool scatter(
                 const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
                 ) const override {
-    //        auto scatter_direction = rec.normal + random_unit_vector();
+            // 沿法线所在半球随机采样
             auto scatter_direction = random_in_hemisphere(rec.normal);
             if (scatter_direction.near_zero())
                 scatter_direction = rec.normal;
+            
+            // 求解入射光线与出射光线的中线
             vec3 half_dir = normalize(r_in.direction() + scatter_direction);
+
+            // 求解法线同half dir的角度作为BRDF贴图的横坐标
             double u = dot(rec.normal, half_dir) * 0.5 + 0.5;
+
+            // 求解入射光线与half dir的角度作为BRDF贴图的纵坐标
             double v = dot(normalize(r_in.direction()), half_dir);
+
             scattered = ray(rec.p, scatter_direction, r_in.time());
             attenuation = BRDF_texture->value(u, v, rec.p);
             return true;
@@ -119,7 +127,10 @@ class metal : public material {
         virtual bool scatter(
             const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
         ) const override {
+            // 求解镜面反射光线方向
             vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
+
+            // 根据粗糙程度对反射光线进行随机偏转
             scattered = ray(rec.p, reflected + fuzz*random_in_unit_sphere(), r_in.time());
             attenuation = albedo;
             return (dot(scattered.direction(), rec.normal) > 0);
@@ -133,7 +144,7 @@ class metal : public material {
 
 class dielectric : public material {
     /******************************
-        电介质材质
+        非传导性介质材质
     ******************************/
     public:
         dielectric(double index_of_refraction) : ir(index_of_refraction) {}
@@ -141,16 +152,21 @@ class dielectric : public material {
         virtual bool scatter(
             const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
         ) const override {
+            // 透光率
             attenuation = color(1.0, 1.0, 1.0);
+
+            // 折射率，从内到外时折射率取反
             double refraction_ratio = rec.front_face ? (1.0/ir) : ir;
 
             vec3 unit_direction = unit_vector(r_in.direction());
             double cos_theta = fmin(dot(-unit_direction, rec.normal), 1.0);
             double sin_theta = sqrt(1.0 - cos_theta*cos_theta);
 
+            // 计算能否实现折射
             bool cannot_refract = refraction_ratio * sin_theta > 1.0;
             vec3 direction;
 
+            // 如果不能折射或者根据反射与折射比值进行抽样模拟模拟为反射时反射，否则折射
             if (cannot_refract || reflectance(cos_theta, refraction_ratio) > random_double())
                 direction = reflect(unit_direction, rec.normal);
             else
@@ -188,6 +204,7 @@ class diffuse_light : public material {
         }
 
         virtual color emitted(double u, double v, const point3& p) const override {
+            // 命中后返回贴图值
             return emit->value(u, v, p);
         }
 
